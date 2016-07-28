@@ -6,7 +6,7 @@ class Morp:
     点推定を利用して、日本語の単語分割を行う。　
     学習, 推定をこれで行う.
     '''
-    def __init__(self, word_dict=None):                  # コンストラクタ
+    def __init__(self, word_dict=None):
         self.name = ""
         self.word_dict = word_dict
         self.estimator = LinearSVC(C=1.0)
@@ -27,6 +27,37 @@ class Morp:
             else:  # 単語分割を行う
                 output_chars = output_chars + ' ' + chars[pointer] 
         return output_chars
+
+    def train_model(self, text_path):
+        '''
+        ファイル一つから学習を行う。学習部分について要確認. text_pathを複数いれた方がいいのかね? まあcatくらいは自前でやってほしいかも
+        '''
+        text = ""
+        for line in open(text_path, 'r'):  # 全ての文字を繋げたtextを生成
+            line = line.strip().replace(" ", "")
+            text = text + line
+        chars = list(text)  # 1文字づつのリスト
+        self.char_dict = {'UNK':0, '^':1, '$':2} # 0はUNK
+        char_number = 3
+        for char in chars: # 辞書を作る
+            if char in self.char_dict:
+                continue
+            else:
+                self.char_dict[char] = char_number
+                char_number += 1
+        line_number = 0
+        for line in open(text_path, 'r'):  # 学習データ生成
+            line = line.strip()
+            features, teacher = self.train_text(line)
+            feature_array = self.make_feature_array(features, len(teacher))  # data_sizeは教師データのsizeから求めてる
+            for feature_line, teacher_line in zip(feature_array, teacher):
+                if teacher == 2:  # 学習しない部分
+                    pass
+                else:
+                    pass
+                    # feature, teacherを元のやつに追加
+        self.estimator.fit(feature_array, teacher)  # 学習部分 # まとめて学習するようにしよう
+        return 0
 
     def get_feature(self, pointer, chars):
         # 文字
@@ -77,10 +108,7 @@ class Morp:
         prediction = self.estimator.predict(feature_array)
         return prediction[0]
 
-    def get_types(self, char):
-        '''
-        文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
-        '''
+    def get_types(self, char):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
         if 'ぁ' <= char <= 'ん':
             return 0
         if 'ァ' <= char <= 'ﾝ' and not '亜' <= char <= '話':
@@ -105,7 +133,6 @@ class Morp:
             if pointer-number-2 < 0:
                 break
             cand = chars[pointer-number-2] + cand  # 左に文字を追加 
-            
 
         cand = chars[pointer]  # 右1文字目
         for char in chars[pointer+1:]:  # s
@@ -132,29 +159,6 @@ class Morp:
             cand_l = cand
         return f, s, o
 
-    def train_model(self, text_path): # ファイル一つから学習を行う。
-        text = ""
-        for line in open(text_path, 'r'):  # 全ての文字を繋げたtextを生成
-            line = line.strip().replace(" ", "")
-            text = text + line
-        chars = list(text)  # 1文字づつのリスト
-        self.char_dict = {'UNK':0, '^':1, '$':2} # 0はUNK
-        char_number = 3
-        for char in chars: # 辞書を作る
-            if char in self.char_dict:
-                continue
-            else:
-                self.char_dict[char] = char_number
-                char_number += 1
-        line_number = 0
-        for line in open(text_path, 'r'):  # 学習データ生成
-            line = line.strip()
-            features, teacher = self.train_text(line)
-            feature_array = self.make_feature_array(features, len(teacher))  # data_sizeは教師データのsizeから求めてる
-#            print(feature_array, teacher)
-            self.estimator.fit(feature_array, teacher)  # 学習部分 # まとめて学習するようにしよう
-        return 0
-
     def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す
         feature_array = np.zeros([data_size, 6*(len(self.char_dict) + 1) + 3])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
         line_number = 0
@@ -168,7 +172,10 @@ class Morp:
 
     def train_text(self, text):  # textを投げ込むと素性を学習データを作る
         text = text.strip()
-        teacher = self.get_teacher(text)
+        if '|' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
+            teacher = self.get_teacher_part(text)
+        else:
+            teacher = self.get_teacher(text)
         chars = list(text.replace(" ", ""))
         features = []
         for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
@@ -191,8 +198,28 @@ class Morp:
                 flag = 0  # 直前処理
         teacher = teacher[1:]
         return teacher
+    
+    def get_teacher_part(self, text):  # 部分的アノテーションの文字列を送ると、boudary_list(teacher)を返す
+        chars = list(text)
+        teacher = []
+        flag = 0
+        for char in chars:
+            if char == '|':
+                teacher.append(1)
+                flag = 1
+            elif char == '-':
+                teacher.append(0)
+                flag = 1
+            elif flag == 0:  # 直前が文字である時のみ
+                teacher.append(2)
+            else:
+                flag = 0  # 直前処理
+        teacher = teacher[1:]
+        return teacher
+
 # sample_code
 word_dict = {"ドイツ人":1, "ドイツ":1}  # word_dict
 Analyser = Morp(word_dict)  # word_dictを指定(省略可能)
 Analyser.train_model('sample.txt')  # テキストファイルから学習
 print(Analyser.word_segment('私は元気です'))  # 単語分割結果を返す
+print(Analyser.get_teacher_part('私|は|ド-イ-ツ-人|が|ロシア人'))
