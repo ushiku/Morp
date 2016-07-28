@@ -1,5 +1,5 @@
+import numpy as np
 
-s
 class Morp:
     '''
     単語分割のみを点推定でするやつ.
@@ -15,21 +15,128 @@ class Morp:
         chars = list(text)
         output_chars = chars[0]
         for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
-            features = self.get_features(pointer, chars)
-            binary_boundary = self.decision_boundary(features)
+            feature = self.get_feature(pointer, chars)
+            binary_boundary = self.decision_boundary(feature)
             if binary_boundary == 0:
                 output_chars = output_chars + chars[pointer]  
             else:
                 output_chars = output_chars + ' ' + chars[pointer] 
         return output_chars
 
-    def get_features(self, pointer, chars):
-        return 0
-    
-    def decision_boundary(self, features):
+    def get_feature(self, pointer, chars):
+        # 文字
+        l1 = chars[pointer-1]
+        if pointer-2 < 0:
+            l2 = '^'
+        else:
+            l2 = chars[pointer-2]
+        if pointer-3 < 0:
+            l3 = '^'
+        else:
+            l3 = chars[pointer-3]
+        
+        r1 = chars[pointer]
+        if pointer+1 > len(chars)-1:
+            r2 = '$'
+        else:
+            r2 = chars[pointer+1]
+        if pointer+2 > len(chars)-1:
+            r3 = '$'
+        else:
+            r3 = chars[pointer+2]
+        # 文字種
+        tl1 = self.get_types(l1)
+        tl2 = self.get_types(l2)
+        tl3 = self.get_types(l3)
+        tr1 = self.get_types(r1)
+        tr2 = self.get_types(r2)
+        tr3 = self.get_types(r3)
+        # 辞書  # 後まわし                
+
+        feature = [l1, l2, l3, r1, r2, r3, tl1, tl2, tl3, tr1, tr2, tr3]
+        return feature
+
+
+    def decision_boundary(self, feature):
         return 1
 
+    def get_types(self, char):
+        '''
+        文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
+        '''
+        if 'ぁ' <= char <= 'ん':
+            return 0
+        if 'ァ' <= char <= 'ﾝ' and not '亜' <= char <= '話':
+            return 1
+        if '亜' <= char <= '話':  # "雨"とかだと失敗するなぜだ...?
+            return 2
+        if 'a' <= char <= 'z' or 'A' <= char <= 'Z':
+            return 3
+        if char.isdigit():
+            return 4
+        return 5
+        return type_number
+
+    def train_model(self, text_path): # ファイル一つから学習を行う。
+        text = ""
+        for line in open(text_path, 'r'):  # 全ての文字を繋げたtextを生成
+            line = line.strip().replace(" ", "")
+            text = text + line
+        chars = list(text)  # 1文字づつのリスト
+        char_dict = {"UNK":0} # 0はUNK
+        char_number = 1 
+        for char in chars: # 辞書を作る
+            if char in char_dict:
+                continue
+            else:
+                char_dict[char] = char_number
+                char_number += 1
+        feature_array = np.zeros([len(open(text_path, 'r')), 6*(len(char_dict) + 1)])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
+        for line in open(text_path, 'r'):  # 学習データ生成
+            line = line.strip()
+            features, teacher = train_text(line)
+        
+            
+        return             
+
+    def train_text(self, text):  # textを投げ込むと素性を学習データを作る
+        text = text.strip()
+        teacher = self.get_teacher(text)
+        chars = list(text.replace(" ", ""))
+        features = []
+        for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
+            feature = self.get_feature(pointer, chars)
+            features.append(feature)  
+        return features, teacher
+    
+    def get_teacher(self, text):  # 空白付きの文字列を送ると、boundary_list(teacher)を返す
+        chars = list(text)
+        teacher = []
+        flag = 0
+        for char in chars:
+            if char == ' ':
+                teacher.append(1)
+                flag = 1
+            elif flag == 0:  # 直前がboundaryでないときのみ
+                teacher.append(0)
+                flag = 0
+            else:
+                flag = 0  # 直前処理
+        teacher = teacher[1:]
+        return teacher
 
 
 Analyser = Morp()
-print(Analyser.word_segment('私は元気です'))
+# word_segmetn確認
+#print(Analyser.word_segment('私は元気です'))
+#Analyser.train_text('私 は 元気 です')
+# train_model
+#print(Analyser.train_model('../corpus/sample.txt'))
+
+# get_types確認
+#print(Analyser.get_types('あ'))
+#print(Analyser.get_types('イ'))
+#print(Analyser.get_types('空'))
+#print(Analyser.get_types('e'))
+#print(Analyser.get_types('8'))
+#print(Analyser.get_types('_'))
