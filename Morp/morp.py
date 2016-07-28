@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.svm import LinearSVC
 
 class Morp:
     '''
@@ -7,7 +8,7 @@ class Morp:
     def __init__(self):                  # コンストラクタ
         self.name = ""
 
-    def word_segment(self, text):
+    def word_segment(self, text, estimator, char_dict):
         '''
         入力されたtextを単語分割して返す
         '''
@@ -16,7 +17,7 @@ class Morp:
         output_chars = chars[0]
         for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
             feature = self.get_feature(pointer, chars)
-            binary_boundary = self.decision_boundary(feature)
+            binary_boundary = self.decision_boundary(feature, estimator, char_dict)
             if binary_boundary == 0:
                 output_chars = output_chars + chars[pointer]  
             else:
@@ -57,8 +58,17 @@ class Morp:
         return feature
 
 
-    def decision_boundary(self, feature):
-        return 1
+    def decision_boundary(self, feature, estimator, char_dict):
+        feature_array = np.zeros([1, 6*(len(char_dict) + 1)])
+        for char, number in zip(feature[:5], range(1,7)):  # r1~l3まで
+            if not char in char_dict:
+                feature_array[0][number*char_dict['UNK']] = 1 # 存在しない時 
+            else:
+                feature_array[0][number*char_dict[char]] = 1
+        for number in range(6, 12):  # tr1~tl3
+            feature_array[0][6*(len(char_dict)) + number-6] = feature[number]
+        prediction = estimator.predict(feature_array)
+        return prediction[0]
 
     def get_types(self, char):
         '''
@@ -75,7 +85,6 @@ class Morp:
         if char.isdigit():
             return 4
         return 5
-        return type_number
 
     def train_model(self, text_path): # ファイル一つから学習を行う。
         text = ""
@@ -83,21 +92,33 @@ class Morp:
             line = line.strip().replace(" ", "")
             text = text + line
         chars = list(text)  # 1文字づつのリスト
-        char_dict = {"UNK":0} # 0はUNK
-        char_number = 1 
+        char_dict = {'UNK':0, '^':1, '$':2} # 0はUNK
+        char_number = 3
         for char in chars: # 辞書を作る
             if char in char_dict:
                 continue
             else:
                 char_dict[char] = char_number
                 char_number += 1
-        feature_array = np.zeros([len(open(text_path, 'r')), 6*(len(char_dict) + 1)])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
+        line_number = 0
+        estimator = LinearSVC(C=1.0)
         for line in open(text_path, 'r'):  # 学習データ生成
             line = line.strip()
-            features, teacher = train_text(line)
-        
-            
-        return             
+            features, teacher = self.train_text(line)
+            feature_array = self.make_feature_array(features, len(teacher), char_dict)  # data_sizeは教師データのsizeから求めてる
+            estimator.fit(feature_array, teacher)  # 学習部分
+        return estimator, char_dict
+
+    def make_feature_array(self, features, data_size, char_dict):  # featuresを投げるとarrayを返す
+        feature_array = np.zeros([data_size, 6*(len(char_dict) + 1)])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
+        line_number = 0
+        for feature in features:
+            for char, number in zip(feature[:5], range(1,7)):  # r1~l3まで
+                feature_array[line_number][number*char_dict[char]] = 1
+            for number in range(6, 12):  # tr1~tl3
+                feature_array[line_number][6*(len(char_dict)) + number-6] = feature[number]
+            line_number += 1
+        return feature_array
 
     def train_text(self, text):  # textを投げ込むと素性を学習データを作る
         text = text.strip()
@@ -108,7 +129,7 @@ class Morp:
             feature = self.get_feature(pointer, chars)
             features.append(feature)  
         return features, teacher
-    
+
     def get_teacher(self, text):  # 空白付きの文字列を送ると、boundary_list(teacher)を返す
         chars = list(text)
         teacher = []
@@ -131,8 +152,9 @@ Analyser = Morp()
 #print(Analyser.word_segment('私は元気です'))
 #Analyser.train_text('私 は 元気 です')
 # train_model
-#print(Analyser.train_model('../corpus/sample.txt'))
-
+estimator, char_dict = Analyser.train_model('../corpus/sample.txt')
+print(Analyser.word_segment('私は元気です', estimator, char_dict))
+print(Analyser.word_segment('外務省のラスプーチンと呼ばれて', estimator, char_dict))
 # get_types確認
 #print(Analyser.get_types('あ'))
 #print(Analyser.get_types('イ'))
