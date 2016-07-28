@@ -46,17 +46,23 @@ class Morp:
                 self.char_dict[char] = char_number
                 char_number += 1
         line_number = 0
+        first_flag = 1  # 学習用のarrayの初期用
         for line in open(text_path, 'r'):  # 学習データ生成
             line = line.strip()
             features, teacher = self.train_text(line)
             feature_array = self.make_feature_array(features, len(teacher))  # data_sizeは教師データのsizeから求めてる
             for feature_line, teacher_line in zip(feature_array, teacher):
-                if teacher == 2:  # 学習しない部分
+                if teacher_line == 2:  # 学習しない部分
                     pass
                 else:
-                    pass
-                    # feature, teacherを元のやつに追加
-        self.estimator.fit(feature_array, teacher)  # 学習部分 # まとめて学習するようにしよう
+                    if first_flag == 1:
+                        total_feature = feature_line
+                        total_teacher = np.array(teacher_line)
+                        first_flag = 0
+                    else:
+                        total_feature = np.vstack((total_feature, feature_line))
+                        total_teacher = np.hstack((total_teacher, teacher_line))
+        self.estimator.fit(total_feature, total_teacher)  # 学習部分 # まとめて学習するようにしよう
         return 0
 
     def get_feature(self, pointer, chars):
@@ -164,6 +170,7 @@ class Morp:
         line_number = 0
         for feature in features:
             for char, number in zip(feature[:5], range(1,7)):  # r1~l3まで
+                
                 feature_array[line_number][number*self.char_dict[char]] = 1
             for number in range(6, 15):  # tr1~o
                 feature_array[line_number][6*(len(self.char_dict)) + number-6] = feature[number]
@@ -174,9 +181,11 @@ class Morp:
         text = text.strip()
         if '|' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
             teacher = self.get_teacher_part(text)
+            chars = list(text.replace("-", "").replace("|", ""))
         else:
             teacher = self.get_teacher(text)
-        chars = list(text.replace(" ", ""))
+            chars = list(text.replace(" ", ""))
+        
         features = []
         for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
             feature = self.get_feature(pointer, chars)
@@ -217,9 +226,11 @@ class Morp:
         teacher = teacher[1:]
         return teacher
 
+
+
 # sample_code
 word_dict = {"ドイツ人":1, "ドイツ":1}  # word_dict
 Analyser = Morp(word_dict)  # word_dictを指定(省略可能)
 Analyser.train_model('sample.txt')  # テキストファイルから学習
-print(Analyser.word_segment('私は元気です'))  # 単語分割結果を返す
-print(Analyser.get_teacher_part('私|は|ド-イ-ツ-人|が|ロシア人'))
+#print(Analyser.word_segment('私は元気です'))  # 単語分割結果を返す
+#print(Analyser.get_teacher_part('私|は|ド-イ-ツ-人|が|ロシア人'))
