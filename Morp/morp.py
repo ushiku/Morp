@@ -3,14 +3,15 @@ from sklearn.svm import LinearSVC
 
 class Morp:
     '''
-    単語分割のみを点推定でするやつ.
+    点推定を利用して、日本語の単語分割を行う。　
+    学習, 推定をこれで行う.
     '''
     def __init__(self):                  # コンストラクタ
         self.name = ""
 
     def word_segment(self, text, estimator, char_dict):
         '''
-        入力されたtextを単語分割して返す
+        入力されたtextを単語分割して返す.
         '''
         text = text.strip()
         chars = list(text)
@@ -18,15 +19,15 @@ class Morp:
         for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
             feature = self.get_feature(pointer, chars)
             binary_boundary = self.decision_boundary(feature, estimator, char_dict)
-            if binary_boundary == 0:
+            if binary_boundary == 0:  # 単語分割なし
                 output_chars = output_chars + chars[pointer]  
-            else:
+            else:  # 単語分割を行う
                 output_chars = output_chars + ' ' + chars[pointer] 
         return output_chars
 
     def get_feature(self, pointer, chars):
         # 文字
-        l1 = chars[pointer-1]
+        l1 = chars[pointer-1]  # 左1文字目
         if pointer-2 < 0:
             l2 = '^'
         else:
@@ -36,7 +37,7 @@ class Morp:
         else:
             l3 = chars[pointer-3]
         
-        r1 = chars[pointer]
+        r1 = chars[pointer]  # 右1文字目
         if pointer+1 > len(chars)-1:
             r2 = '$'
         else:
@@ -52,7 +53,7 @@ class Morp:
         tr1 = self.get_types(r1)
         tr2 = self.get_types(r2)
         tr3 = self.get_types(r3)
-        # 辞書  # 後まわし                
+        # 辞書  # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
 
         feature = [l1, l2, l3, r1, r2, r3, tl1, tl2, tl3, tr1, tr2, tr3]
         return feature
@@ -85,6 +86,53 @@ class Morp:
         if char.isdigit():
             return 4
         return 5
+    
+    def get_dict_feature(self, pointer, chars): # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
+        word_dict ={'ドイツ':1}
+        f, s, o = 0, 0, 0
+                
+        cand = chars[pointer-1]  # 左1文字目
+        for number in range(0, pointer):  # f
+            print('f', cand)
+            if cand in word_dict:
+                f = 1
+                break
+            if pointer-number-2 < 0:
+                break
+            cand = chars[pointer-number-2] + cand  # 左に文字を追加 
+            
+
+        cand = chars[pointer]  # 右1文字目
+        for char in chars[pointer+1:]:  # s
+            print('s', cand)
+            if cand in word_dict:
+                s = 1
+                break
+            cand = cand + char
+        print('s', cand)
+        if cand in word_dict:
+            s = 1
+            
+            
+        cand = chars[pointer-1] + chars[pointer]
+        cand_l = cand  # 左側に増やす
+        for number in range(0, pointer):
+            for char in chars[pointer+1:]:
+                print('o', cand)
+                if cand in word_dict:
+                    o = 1
+                    break
+                cand = cand + char
+            print('o', cand)
+            if cand in word_dict:
+                o = 1
+            if pointer-number-2 < 0:
+                break
+            cand = chars[pointer-number-2] + cand_l
+            cand_l = cand
+
+        return f, s, o
+
 
     def train_model(self, text_path): # ファイル一つから学習を行う。
         text = ""
@@ -152,9 +200,10 @@ Analyser = Morp()
 #print(Analyser.word_segment('私は元気です'))
 #Analyser.train_text('私 は 元気 です')
 # train_model
-estimator, char_dict = Analyser.train_model('../corpus/sample.txt')
-print(Analyser.word_segment('私は元気です', estimator, char_dict))
-print(Analyser.word_segment('外務省のラスプーチンと呼ばれて', estimator, char_dict))
+print(Analyser.get_dict_feature(2, list('ドイツ人は綺麗')))
+#estimator, char_dict = Analyser.train_model('../corpus/sample.txt')
+#print(Analyser.word_segment('私は元気です', estimator, char_dict))
+#print(Analyser.word_segment('外務省のラスプーチンと呼ばれて', estimator, char_dict))
 # get_types確認
 #print(Analyser.get_types('あ'))
 #print(Analyser.get_types('イ'))
