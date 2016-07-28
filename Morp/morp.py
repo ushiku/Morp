@@ -25,7 +25,7 @@ class Morp:
                 output_chars = output_chars + ' ' + chars[pointer] 
         return output_chars
 
-    def get_feature(self, pointer, chars):
+    def get_feature(self, pointer, chars, word_dict=None):
         # 文字
         l1 = chars[pointer-1]  # 左1文字目
         if pointer-2 < 0:
@@ -54,8 +54,10 @@ class Morp:
         tr2 = self.get_types(r2)
         tr3 = self.get_types(r3)
         # 辞書  # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
-
-        feature = [l1, l2, l3, r1, r2, r3, tl1, tl2, tl3, tr1, tr2, tr3]
+        f, s, o = 0, 0, 0
+        if not word_dict == None:  # 辞書を持っているpattern
+            f, s, o = get_dict_feature(pointer, chars, word_dict)
+        feature = [l1, l2, l3, r1, r2, r3, tl1, tl2, tl3, tr1, tr2, tr3, f, s, o]
         return feature
 
 
@@ -66,7 +68,7 @@ class Morp:
                 feature_array[0][number*char_dict['UNK']] = 1 # 存在しない時 
             else:
                 feature_array[0][number*char_dict[char]] = 1
-        for number in range(6, 12):  # tr1~tl3
+        for number in range(6, 15):  # tr1~o
             feature_array[0][6*(len(char_dict)) + number-6] = feature[number]
         prediction = estimator.predict(feature_array)
         return prediction[0]
@@ -87,13 +89,12 @@ class Morp:
             return 4
         return 5
     
-    def get_dict_feature(self, pointer, chars): # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
-        word_dict ={'ドイツ':1}
+    def get_dict_feature(self, pointer, chars, word_dict): # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
+        # ウルトラ汚いので整備必要(一応動くはず)
         f, s, o = 0, 0, 0
                 
         cand = chars[pointer-1]  # 左1文字目
         for number in range(0, pointer):  # f
-            print('f', cand)
             if cand in word_dict:
                 f = 1
                 break
@@ -104,26 +105,21 @@ class Morp:
 
         cand = chars[pointer]  # 右1文字目
         for char in chars[pointer+1:]:  # s
-            print('s', cand)
             if cand in word_dict:
                 s = 1
                 break
             cand = cand + char
-        print('s', cand)
         if cand in word_dict:
             s = 1
             
-            
         cand = chars[pointer-1] + chars[pointer]
         cand_l = cand  # 左側に増やす
-        for number in range(0, pointer):
+        for number in range(0, pointer):  # o
             for char in chars[pointer+1:]:
-                print('o', cand)
                 if cand in word_dict:
                     o = 1
                     break
                 cand = cand + char
-            print('o', cand)
             if cand in word_dict:
                 o = 1
             if pointer-number-2 < 0:
@@ -163,7 +159,7 @@ class Morp:
         for feature in features:
             for char, number in zip(feature[:5], range(1,7)):  # r1~l3まで
                 feature_array[line_number][number*char_dict[char]] = 1
-            for number in range(6, 12):  # tr1~tl3
+            for number in range(6, 15):  # tr1~o
                 feature_array[line_number][6*(len(char_dict)) + number-6] = feature[number]
             line_number += 1
         return feature_array
