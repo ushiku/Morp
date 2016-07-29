@@ -11,7 +11,7 @@ Pythonだけで動く単語分割器です。
 
 Python3.4.3で動作確認をしています。
 ```
-pip install git+https://github.com/ushiku/text2feature.git
+pip install git+https://github.com/ushiku/morp.git
 ```
 ライブラリとして、numpyとscikit-learnが必要です.
 
