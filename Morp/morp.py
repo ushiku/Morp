@@ -1,13 +1,13 @@
 import numpy as np
 from sklearn.svm import LinearSVC
-
+from sklearn.naive_bayes import GaussianNB
 
 class Morp:
     '''
     点予測を利用して、日本語の単語分割を行う。　
     学習, 推定をこれで行う.
     '''
-    def __init__(self, word_dict=None):
+    def __init__(self, word_dict=None, estimator = LinearSVC(C=1.0)):
         self.name = ""
         self.word_dict = word_dict
         self.estimator = LinearSVC(C=1.0)
@@ -168,7 +168,7 @@ class Morp:
 
     def train_text(self, text):  # textを投げ込むと素性を学習データを作る
         text = text.strip()
-        if '|' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
+        if '|' in list(text) or '-' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
             teacher = self.get_teacher_part(text)
             position_list = self.get_position_part(text)  # 学習速度の問題で、ここで学習するpointerを把握
             chars = list(text.replace("-", "").replace("|", ""))
@@ -229,3 +229,4 @@ class Morp:
             else:
                 flag = 0  # 直前処理
         return teacher
+
