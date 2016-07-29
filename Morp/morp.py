@@ -29,24 +29,57 @@ class Morp:
                 output_chars = output_chars + ' ' + chars[pointer]
         return output_chars
 
-    def train_model(self, text_path):
+    def train(self, text_path_list):  # 引数はpath, あるいはpath_list
+        first_flag = 1
+        if type(text_path_list) == str:  # pathが一つの時
+            text = ""
+            for line in open(text_path_list, 'r'):  # 全ての文字を繋げたtextを生成
+                line = line.strip().replace(" ", "")
+                text = text + line
+            chars = list(text)  # 1文字づつのリスト
+            self.char_dict = {'UNK': 0, '^': 1, '$': 2}  # 0はUNK
+            char_number = 3
+            for char in chars:  # 辞書を作る
+                if char in self.char_dict:
+                    continue
+                else:
+                    self.char_dict[char] = char_number
+            total_feature, total_teacher = self.train_file(text_path_list)
+
+        if type(text_path_list) == list:  # pathが複数
+            text = ""
+            for text_path in text_path_list:
+                for line in open(text_path, 'r'):  # 全ての文字を繋げたtextを生成
+                    line = line.strip().replace(" ", "")
+                    text = text + line
+            chars = list(text)  # 1文字づつのリスト
+            self.char_dict = {'UNK': 0, '^': 1, '$': 2}  # 0はUNK
+            char_number = 3
+            for char in chars:  # 辞書を作る
+                if char in self.char_dict:
+                    continue
+                else:
+                    self.char_dict[char] = char_number
+            for text_path in text_path_list:
+                print(text_path)
+                if first_flag == 1: # 初回用
+                    total_feature, total_teacher = self.train_file(text_path)
+                    first_flag = 0
+                else:
+                    feature, teacher = self.train_file(text_path)
+                    total_feature = np.vstack((total_feature, feature))
+                    total_teacher = np.hstack((total_teacher, teacher))
+                print('total', len(total_teacher))
+        print(len(total_teacher))
+        self.estimator.fit(total_feature, total_teacher)
+        return 0
+
+    def train_file(self, text_path):
         '''
         ファイル一つから学習を行う。学習部分について要確認. text_pathを複数いれた方がいいのかね? まあcatくらいは自前でやってほしいかも
         '''
-        text = ""
-        for line in open(text_path, 'r'):  # 全ての文字を繋げたtextを生成
-            line = line.strip().replace(" ", "")
-            text = text + line
-        chars = list(text)  # 1文字づつのリスト
-        self.char_dict = {'UNK': 0, '^': 1, '$': 2}  # 0はUNK
-        char_number = 3
-        for char in chars:  # 辞書を作る
-            if char in self.char_dict:
-                continue
-            else:
-                self.char_dict[char] = char_number
-                char_number += 1
         first_flag = 1  # 学習用のarrayの初期用
+        line_number = 0
         for line in open(text_path, 'r'):  # 学習データ生成
             line = line.strip()
             features, teacher = self.train_text(line)
@@ -54,11 +87,13 @@ class Morp:
             if first_flag == 1:  # 初回用
                 total_feature = feature_array
                 total_teacher = teacher
+                first_flag = 0
             else:
                 total_feature = np.vstack((total_feature, feature_array))
                 total_teacher = np.hstack((total_teacher, teacher))
-        self.estimator.fit(total_feature, total_teacher)  # 学習部分 # まとめて学習している
-        return 0
+            print(line_number, len(total_teacher))
+            line_number += 1
+        return total_feature, total_teacher
 
     def get_feature(self, pointer, chars):
         # 文字
@@ -230,3 +265,19 @@ class Morp:
                 flag = 0  # 直前処理
         return teacher
 
+
+
+
+
+#Analyser = Morp()
+#Analyser.train(['../experiment/corpus/OY-test.word', '../experiment/corpus/sample.word', '../experiment/corpus/OY-test.word'])  # 複数のファイルはまとめて学習するのがよい
+Analyser = Morp()
+Analyser.train(['../experiment/corpus/sample.word', '../experiment/corpus/sample.word', '../experiment/corpus/OY-test.word'])
+
+
+print(Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
+print(Analyser.word_segment('インフレは欧州市民にとって最大の懸念事項'))
+#print(Analyser.word_segment('市民'))
+#print(Analyser2.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
+#print(Analyser2.word_segment('インフレは欧州市民にとって最大の懸念事項'))
+#print(Analyser2.word_segment('市民'))
