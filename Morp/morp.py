@@ -3,12 +3,13 @@ from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import GaussianNB
 from scipy import sparse
 
+
 class Morp:
     '''
     点予測を利用して、日本語の単語分割を行う。　
     学習, 推定をこれで行う.
     '''
-    def __init__(self, word_dict=None, estimator = LinearSVC(C=1.0)):
+    def __init__(self, word_dict=None, estimator = LinearSVC(C=1.0)):  # 多分データ量が多くなってきたらSVGとかにする?
         self.name = ""
         self.word_dict = word_dict
         self.estimator = LinearSVC(C=1.0)
@@ -69,7 +70,6 @@ class Morp:
                     feature, teacher = self.train_file(text_path)
                     total_feature = sparse.vstack((total_feature, feature))
                     total_teacher = np.hstack((total_teacher, teacher))
-        print(total_feature.shape, len(total_teacher))
         self.estimator.fit(total_feature.todense(), total_teacher)
         return 0
 
@@ -90,7 +90,7 @@ class Morp:
             else:  # ここが計算量のneckになっている...??  # つーかメモリの量の問題な気もする....(500文で,10000次元ぐらいのベクトル)
                 total_feature = sparse.vstack((total_feature, feature_array))
                 total_teacher = np.hstack((total_teacher, teacher))
-            print(line_number, len(total_teacher))
+#            print(line_number, len(total_teacher))
             line_number += 1
         return total_feature, total_teacher
 
@@ -256,26 +256,19 @@ class Morp:
                 flag = 1
             elif char == '-':
                 teacher.append(0)
-                flag = 1
-            elif flag == 0:  # 直前が文字である時のみ
+                flag = 0
+            elif flag == 0:  # 直前が文字である時のみ  # not_segmented
                 #teacher.append(2)
                 pass
             else:
                 flag = 0  # 直前処理
         return teacher
 
-
-
-
-
-#Analyser = Morp()
-#Analyser.train(['../experiment/corpus/OY-test.word', '../experiment/corpus/sample.word', '../experiment/corpus/OY-test.word'])  # 複数のファイルはまとめて学習するのがよい
 Analyser = Morp()
-Analyser.train(['../experiment/corpus/OY-train.word'])
+Analyser.train(['../experiment/corpus/train100.word'])
+for number in range(0, 10000):
+    Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、')
 
-
-print(Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
-print(Analyser.word_segment('インフレは欧州市民にとって最大の懸念事項'))
 #print(Analyser.word_segment('市民'))
 #print(Analyser2.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
 #print(Analyser2.word_segment('インフレは欧州市民にとって最大の懸念事項'))
