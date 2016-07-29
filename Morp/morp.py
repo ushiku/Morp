@@ -30,7 +30,7 @@ class Morp:
         return output_chars
 
     def train(self, text_path_list):  # 引数はpath, あるいはpath_list
-        first_flag = 1
+
         if type(text_path_list) == str:  # pathが一つの時
             text = ""
             for line in open(text_path_list, 'r'):  # 全ての文字を繋げたtextを生成
@@ -60,6 +60,7 @@ class Morp:
                     continue
                 else:
                     self.char_dict[char] = char_number
+            first_flag = 1
             for text_path in text_path_list:
                 print(text_path)
                 if first_flag == 1: # 初回用
@@ -69,6 +70,7 @@ class Morp:
                     feature, teacher = self.train_file(text_path)
                     total_feature = np.vstack((total_feature, feature))
                     total_teacher = np.hstack((total_teacher, teacher))
+                print(type(total_teacher))
                 print('total', len(total_teacher))
         print(len(total_teacher))
         self.estimator.fit(total_feature, total_teacher)
@@ -88,7 +90,8 @@ class Morp:
                 total_feature = feature_array
                 total_teacher = teacher
                 first_flag = 0
-            else:
+            else:  # ここが計算量のneckになっている...??  # つーかメモリの量の問題な気もする....(500文で,10000次元ぐらいのベクトル)
+                pass
                 total_feature = np.vstack((total_feature, feature_array))
                 total_teacher = np.hstack((total_teacher, teacher))
             print(line_number, len(total_teacher))
@@ -244,7 +247,7 @@ class Morp:
                 flag = 0
             else:
                 flag = 0  # 直前処理
-        teacher = teacher[1:]
+        teacher = np.array(teacher[1:])
         return teacher
 
     def get_teacher_part(self, text):  # 部分的アノテーションの文字列を送ると、boudary_list(teacher)を返す
