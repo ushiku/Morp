@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import GaussianNB
+from scipy import sparse
 
 class Morp:
     '''
@@ -30,7 +31,6 @@ class Morp:
         return output_chars
 
     def train(self, text_path_list):  # 引数はpath, あるいはpath_list
-
         if type(text_path_list) == str:  # pathが一つの時
             text = ""
             for line in open(text_path_list, 'r'):  # 全ての文字を繋げたtextを生成
@@ -62,18 +62,15 @@ class Morp:
                     self.char_dict[char] = char_number
             first_flag = 1
             for text_path in text_path_list:
-                print(text_path)
                 if first_flag == 1: # 初回用
                     total_feature, total_teacher = self.train_file(text_path)
                     first_flag = 0
                 else:
                     feature, teacher = self.train_file(text_path)
-                    total_feature = np.vstack((total_feature, feature))
+                    total_feature = sparse.vstack((total_feature, feature))
                     total_teacher = np.hstack((total_teacher, teacher))
-                print(type(total_teacher))
-                print('total', len(total_teacher))
-        print(len(total_teacher))
-        self.estimator.fit(total_feature, total_teacher)
+        print(total_feature.shape, len(total_teacher))
+        self.estimator.fit(total_feature.todense(), total_teacher)
         return 0
 
     def train_file(self, text_path):
@@ -91,8 +88,7 @@ class Morp:
                 total_teacher = teacher
                 first_flag = 0
             else:  # ここが計算量のneckになっている...??  # つーかメモリの量の問題な気もする....(500文で,10000次元ぐらいのベクトル)
-                pass
-                total_feature = np.vstack((total_feature, feature_array))
+                total_feature = sparse.vstack((total_feature, feature_array))
                 total_teacher = np.hstack((total_teacher, teacher))
             print(line_number, len(total_teacher))
             line_number += 1
@@ -193,7 +189,7 @@ class Morp:
             cand_l = cand
         return f, s, o
 
-    def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す
+    def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す  # ここをscipy行列でやりたい
         feature_array = np.zeros([data_size, 6*(len(self.char_dict) + 1) + 3])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
         line_number = 0
         for feature in features:
@@ -202,7 +198,7 @@ class Morp:
             for number in range(6, 15):  # 素性tr1~o
                 feature_array[line_number][6*(len(self.char_dict)) + number-6] = feature[number]
             line_number += 1
-        return feature_array
+        return sparse.csr_matrix(feature_array)
 
     def train_text(self, text):  # textを投げ込むと素性を学習データを作る
         text = text.strip()
@@ -275,7 +271,7 @@ class Morp:
 #Analyser = Morp()
 #Analyser.train(['../experiment/corpus/OY-test.word', '../experiment/corpus/sample.word', '../experiment/corpus/OY-test.word'])  # 複数のファイルはまとめて学習するのがよい
 Analyser = Morp()
-Analyser.train(['../experiment/corpus/sample.word', '../experiment/corpus/sample.word', '../experiment/corpus/OY-test.word'])
+Analyser.train(['../experiment/corpus/OY-train.word'])
 
 
 print(Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
