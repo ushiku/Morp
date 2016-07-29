@@ -6,7 +6,7 @@ from Morp import __author__, __version__, __license__
 setup(
         name             = 'Morp',
         version          = __version__,
-        description      = '点予測単語分割'
+        description      = '点予測単語分割',
         license          = __license__,
         author           = __author__,
         author_email     = 'd460655046504@gmail.com',
