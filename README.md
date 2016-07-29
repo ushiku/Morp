@@ -5,13 +5,13 @@ Pythonだけで動く単語分割器です。
 点予測とよばれる、文字境界を単語境界として分割できるかを独立に推定しています。
 そのため、部分的にアノテーションされたコーパスを学習することができます。
 これは、分野適応において有効であると考えられています。
-点予測による形態素解析としては、[KyTea](http://www.phontron.com/kytea/index-ja.html)がありますが、Pythonで自然言語処理をやる人向けにもっと手軽に利用できたらということで作りました。
+点予測による形態素解析としては、[KyTea](http://www.phontron.com/kytea/index-ja.html)がありますが、Pythonで自然言語処理をやる人向けにもっと手軽に利用できたらということで作りました。KyTeaと異なり、品詞の推定は行いません。
 
 ## インストール
 
 Python3.4.3で動作確認をしています。
 ```
-pip install git+https://github.com/ushiku/text2feature.git
+pip install git+https://github.com/ushiku/morp.git
 ```
 ライブラリとして、numpyとscikit-learnが必要です.
 
