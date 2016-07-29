@@ -12,7 +12,7 @@ class Morp:
     def __init__(self, word_dict=None, estimator = LinearSVC(C=1.0)):  # 多分データ量が多くなってきたらSVGとかにする?
         self.name = ""
         self.word_dict = word_dict
-        self.estimator = LinearSVC(C=1.0)
+        self.estimator = estimator
         self.char_dict = {}
 
     def word_segment(self, text):
@@ -87,7 +87,7 @@ class Morp:
                 total_feature = feature_array
                 total_teacher = teacher
                 first_flag = 0
-            else:  # ここが計算量のneckになっている...??  # つーかメモリの量の問題な気もする....(500文で,10000次元ぐらいのベクトル)
+            else:  # ここが計算量のneckになっている...??  # つーかメモリの量の問題な気もする....(500文で,10000次元ぐらいのベクトル)  # scipyを入れて多少はマシに?
                 total_feature = sparse.vstack((total_feature, feature_array))
                 total_teacher = np.hstack((total_teacher, teacher))
 #            print(line_number, len(total_teacher))
@@ -189,7 +189,7 @@ class Morp:
             cand_l = cand
         return f, s, o
 
-    def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す  # ここをscipy行列でやりたい
+    def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す
         feature_array = np.zeros([data_size, 6*(len(self.char_dict) + 1) + 3])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
         line_number = 0
         for feature in features:
@@ -198,7 +198,7 @@ class Morp:
             for number in range(6, 15):  # 素性tr1~o
                 feature_array[line_number][6*(len(self.char_dict)) + number-6] = feature[number]
             line_number += 1
-        return sparse.csr_matrix(feature_array)
+        return sparse.csr_matrix(feature_array)  # csrは足し算が早い
 
     def train_text(self, text):  # textを投げ込むと素性を学習データを作る
         text = text.strip()
@@ -228,7 +228,6 @@ class Morp:
                 position_list.append(number - count)  # number-countで、原文の学習pointを示せる
                 count+= 1
         return position_list
-
 
     def get_teacher(self, text):  # 空白付きの文字列を送ると、boundary_list(teacher)を返す
         chars = list(text)
