@@ -46,24 +46,18 @@ class Morp:
             else:
                 self.char_dict[char] = char_number
                 char_number += 1
-        line_number = 0
         first_flag = 1  # 学習用のarrayの初期用
         for line in open(text_path, 'r'):  # 学習データ生成
             line = line.strip()
             features, teacher = self.train_text(line)
             feature_array = self.make_feature_array(features, len(teacher))  # data_sizeは教師データのsizeから求めてる
-            for feature_line, teacher_line in zip(feature_array, teacher):
-                if teacher_line == 2:  # 学習しない部分
-                    pass
-                else:
-                    if first_flag == 1:
-                        total_feature = feature_line
-                        total_teacher = np.array(teacher_line)
-                        first_flag = 0
-                    else:
-                        total_feature = np.vstack((total_feature, feature_line))
-                        total_teacher = np.hstack((total_teacher, teacher_line))
-        self.estimator.fit(total_feature, total_teacher)  # 学習部分 # まとめて学習するようにしよう
+            if first_flag == 1:  # 初回用
+                total_feature = feature_array
+                total_teacher = teacher
+            else:
+                total_feature = np.vstack((total_feature, feature_array))
+                total_teacher = np.hstack((total_teacher, teacher))
+        self.estimator.fit(total_feature, total_teacher)  # 学習部分 # まとめて学習している
         return 0
 
     def get_feature(self, pointer, chars):
@@ -176,15 +170,31 @@ class Morp:
         text = text.strip()
         if '|' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
             teacher = self.get_teacher_part(text)
+            position_list = self.get_position_part(text)  # 学習速度の問題で、ここで学習するpointerを把握
             chars = list(text.replace("-", "").replace("|", ""))
-        else:
+            features = []  
+            for pointer in position_list:  # 学習
+                feature = self.get_feature(pointer, chars)
+                features.append(feature)
+        else:  # フルアノテーション時
             teacher = self.get_teacher(text)
             chars = list(text.replace(" ", ""))
-        features = []
-        for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
-            feature = self.get_feature(pointer, chars)
-            features.append(feature)
+            features = []
+            for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
+                feature = self.get_feature(pointer, chars)
+                features.append(feature)
         return features, teacher
+
+    def get_position_part(self, text):  # 部分的アノテーションの学習するpointerの場所をもらう.
+        chars = list(text)
+        position_list = []
+        count = 0  # 学習pointの個数
+        for number in range(1, len(chars)):
+            if chars[number] == '|' or chars[number] == '-':
+                position_list.append(number - count)  # number-countで、原文の学習pointを示せる
+                count+= 1
+        return position_list
+
 
     def get_teacher(self, text):  # 空白付きの文字列を送ると、boundary_list(teacher)を返す
         chars = list(text)
@@ -214,8 +224,8 @@ class Morp:
                 teacher.append(0)
                 flag = 1
             elif flag == 0:  # 直前が文字である時のみ
-                teacher.append(2)
+                #teacher.append(2)
+                pass
             else:
                 flag = 0  # 直前処理
-        teacher = teacher[1:]
         return teacher
