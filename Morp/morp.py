@@ -74,7 +74,7 @@ class Morp:
                     total_feature = sparse.vstack((total_feature, feature))
                     total_teacher = np.hstack((total_teacher, teacher))
         total_feature = total_feature.todense()
-        print(total_feature.shape, total_teacher)
+#        print(total_feature.shape, total_teacher)
         self.estimator.fit(total_feature, total_teacher)
         return 0
 
@@ -92,7 +92,6 @@ class Morp:
             line = line.strip()
             if len(line) < 2:  # 学習するところがないなら
                 continue
-            print(line)
             features, teacher = self.train_text(line)
             feature_array = sparse.csr_matrix(self.make_feature_array(features, len(teacher)))  # data_sizeは教師データのsizeから求めてる
             if first_flag == 1:  # 初回用
@@ -108,7 +107,7 @@ class Morp:
     def train_text(self, text):  # textを投げ込むと素性を学習データを作る
         text = text.strip()
         if '|' in list(text) or '-' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
-                teacher = self.get_teacher_part(text)
+            teacher = self.get_teacher_part(text)
             position_list = self.get_position_part(text)  # 学習速度の問題で、ここで学習するpointerを把握
             chars = list(text.replace("-", "").replace("|", ""))
             features = []
@@ -334,19 +333,3 @@ class Morp:
             cand = chars[pointer-number-2] + cand_l
             cand_l = cand
         return f, s, o
-
-#Analyser = Morp(estimator = SGDClassifier(loss='hinge'))
-Analyser = Morp()
-Analyser.train(['../experiment/corpus/OY-test.word'])
-print('正解:決算 発表 まで 、 じっと 我慢 の 子 で い られ る か な 。')
-print(Analyser.word_segment('決算発表まで、じっと我慢の子でいられるかな。'))
-print(Analyser.word_segment('インフレは欧州市民にとって最大の懸念事項'))
-print(Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
-
-#f = open('model', 'wb')
-#pickle.dump(Analyser, f)
-#f.close()
-#print(Analyser.word_segment('市民'))
-#print(Analyser2.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
-#print(Analyser2.word_segment('インフレは欧州市民にとって最大の懸念事項'))
-#print(Analyser2.word_segment('市民'))

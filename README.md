@@ -13,8 +13,7 @@ Python3.4.3で動作確認をしています。
 ```
 pip install git+https://github.com/ushiku/morp.git
 ```
-ライブラリとして、numpyとscikit-learnが必要です.
-
+ライブラリとして、numpyとscikit-learn, scipyが必要です.
 
 
 ## 使い方
@@ -25,9 +24,9 @@ Analyser = Morp(word_dict)
 インスタンス生成時に、word_dictを指定できます。 word_dictはなくても動作します。
 
 ```
-Analyser.train_model('sample.txt')  # テキストファイルから学習
+Analyser.train(['sample.txt', 'sample2.txt'])  # テキストファイルから学習
 ```
-train_modelで、単語境界を学習できます。
+trainで、単語境界を学習できます。
 テキストファイルの形式は
 ```
 私 は お金　が 好き です
@@ -36,7 +35,6 @@ train_modelで、単語境界を学習できます。
 のいづれかの書き方です。
 前者はword_boundaryをスペースで、後者はword_boundaryがあるところを|、ないところを-で表示しています。後者は、後述の部分的アノテーションに対応しています。
 行ごとには混在していても大丈夫ですが、同一行に二つの表記が混じるとエラーを吐きます。
-
 
 ```
 print(Analyser.word_segment('私は元気です'))
@@ -47,7 +45,7 @@ print(Analyser.word_segment('私は元気です'))
 ## 素性について
 KyTeaと同じ素性を使っています。
 すなわち、とある文字境界について、左側1, 2, 3文字と右側1, 2, 3文字.それぞれの文字種(ひらがな、カタカナ、漢字、数字、その他).単語辞書に乗っている単語が、境界の直前で終わるか(f),境界の直後から始まるか(s),
-境界をまたいでいるか(o)のbinary.
+境界をまたいでいるか(o)のbinary。また、上記の文字、文字種にたいしてbigram, trigramを見ています。
 
 ##部分的アノテーションについて
 特定の分野の解析制度をあげたい時は、部分的アノテーションをすることで効率的に精度があげられると考えられます。 
