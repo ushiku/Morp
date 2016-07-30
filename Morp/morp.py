@@ -1,7 +1,9 @@
 import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import SGDClassifier
 from scipy import sparse
+import pickle
 
 
 class Morp:
@@ -90,7 +92,6 @@ class Morp:
             else:  # ここが計算量のneckになっている...??  # つーかメモリの量の問題な気もする....(500文で,10000次元ぐらいのベクトル)  # scipyを入れて多少はマシに?
                 total_feature = sparse.vstack((total_feature, feature_array))
                 total_teacher = np.hstack((total_teacher, teacher))
-#            print(line_number, len(total_teacher))
             line_number += 1
         return total_feature, total_teacher
 
@@ -126,18 +127,29 @@ class Morp:
         f, s, o = 0, 0, 0
         if not self.word_dict is None:  # 辞書を持っているpattern
             f, s, o = self.get_dict_feature(pointer, chars)
+
+        # type_bigram
+#        tbl1 =   # tl1 + tl2
+#        tbl2 =   # tl2 + tl3
+#        tbr1 =   # tr1 + tr2 
+#        tbr2 =   # tr2 + tr3
+#        tbo1 =   # tr1 + tl1
+        
+
         feature = [l1, l2, l3, r1, r2, r3, tl1, tl2, tl3, tr1, tr2, tr3, f, s, o]
         return feature
 
     def decision_boundary(self, feature):  # 
-        feature_array = np.zeros([1, 6*(len(self.char_dict) + 1) + 3])
+        feature_array = np.zeros([1, 6*(len(self.char_dict) + 6) + 3])
         for char, number in zip(feature[:5], range(1, 7)):  # 素性r1~l3まで
             if char not in self.char_dict:
                 feature_array[0][number*self.char_dict['UNK']] = 1  # 辞書に存在しない時 
             else:
                 feature_array[0][number*self.char_dict[char]] = 1
-        for number in range(6, 15):  # 素性tr1~o
-            feature_array[0][6*(len(self.char_dict)) + number-6] = feature[number]
+        for number in range(6, 12):  # 素性tr1~tl3
+            feature_array[0][6*(len(self.char_dict)) + 6*(number-6) + feature[number]] = 1  #  0~35
+        for number in range(12, 15):
+            feature_array[0][6*(len(self.char_dict)) + number + 24] = 1  # 36,37,38
         prediction = self.estimator.predict(feature_array)
         return prediction[0]
 
@@ -190,13 +202,18 @@ class Morp:
         return f, s, o
 
     def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す
-        feature_array = np.zeros([data_size, 6*(len(self.char_dict) + 1) + 3])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
+        feature_array = np.zeros([data_size, 6*(len(self.char_dict) + 6) + 3])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
+        print(feature_array.shape)
         line_number = 0
         for feature in features:
             for char, number in zip(feature[:5], range(1, 7)):  # 素性r1~l3まで
                 feature_array[line_number][number*self.char_dict[char]] = 1
-            for number in range(6, 15):  # 素性tr1~o
-                feature_array[line_number][6*(len(self.char_dict)) + number-6] = feature[number]
+            for number in range(6, 12):  # 素性tr1~tl3
+                print(6*(len(self.char_dict)) + 6*(number-6) + feature[number])
+                feature_array[line_number][6*(len(self.char_dict)) + 6*(number-6) + feature[number]] = 1  #  0~35
+            for number in range(12, 15):
+                print(6*(len(self.char_dict)) + number + 24)
+                feature_array[line_number][6*(len(self.char_dict)) + number + 24] = 1  # 36,37,38
             line_number += 1
         return sparse.csr_matrix(feature_array)  # csrは足し算が早い
 
@@ -263,11 +280,17 @@ class Morp:
                 flag = 0  # 直前処理
         return teacher
 
+#Analyser = Morp(estimator = SGDClassifier(loss='hinge'))
 Analyser = Morp()
-Analyser.train(['../experiment/corpus/train100.word'])
-for number in range(0, 10000):
-    Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、')
+for number in range(0, 100):
+    Analyser.train(['a.txt'])
+    print('正解:決算 発表 まで 、 じっと 我慢 の 子 で い られ る か な 。')
+    print(Analyser.word_segment('決算発表まで、じっと我慢の子でいられるかな。'))
 
+
+#f = open('model', 'wb')
+#pickle.dump(Analyser, f)
+#f.close()
 #print(Analyser.word_segment('市民'))
 #print(Analyser2.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
 #print(Analyser2.word_segment('インフレは欧州市民にとって最大の懸念事項'))
