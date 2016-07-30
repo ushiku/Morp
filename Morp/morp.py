@@ -15,13 +15,18 @@ class Morp:
         self.name = ""
         self.word_dict = word_dict
         self.estimator = estimator
-        self.char_dict = {}
+        self.unigram_dict = {}
+        self.bigram_dict = {}
+        self.trigram_dict = {}
+        self.type_dict = {}
 
     def word_segment(self, text):
         '''
         入力されたtextを単語分割して返す.
         '''
         text = text.strip()
+        if len(text) < 2:  # 分割する必要なし
+            return text
         chars = list(text)
         output_chars = chars[0]
         for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
@@ -45,15 +50,16 @@ class Morp:
                     text = text + line
             
             char_number = 0
-            for n in range(1, 4):  # 1gram~3gram
-                self.char_dict['UNK'+str(n)] = char_number
+            for n, dict in zip(range(1, 4), [self.unigram_dict , self.bigram_dict, self.trigram_dict]):  # 1gram~3gram
+                dict['UNK'] = char_number
                 chars = self.ngram(text, n)
                 for char in chars:  # 辞書を作る
-                    if char in self.char_dict:
+                    if char in dict:
                         continue
                     else:
-                        self.char_dict[char] = char_number
+                        dict[char] = char_number
                     char_number += 1
+                cahr_number = 0  # reset
 
             first_flag = 1
             for text_path in text_path_list:
@@ -84,6 +90,9 @@ class Morp:
         line_number = 0
         for line in open(text_path, 'r'):  # 学習データ生成
             line = line.strip()
+            if len(line) < 2:  # 学習するところがないなら
+                continue
+            print(line)
             features, teacher = self.train_text(line)
             feature_array = sparse.csr_matrix(self.make_feature_array(features, len(teacher)))  # data_sizeは教師データのsizeから求めてる
             if first_flag == 1:  # 初回用
@@ -161,22 +170,47 @@ class Morp:
 
 #    [0,1,2,3,4,5||6,7,8,9,10,||11,12,13,14||15,16,17,18,19,20,||21, 22,23,]
 #         unigram       bigram         trigram        type-unigram     dict
-#    n-gram: 15*dict_length, type_unigram: 6*6 dict: 3
-    def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す
-        feature_array = np.zeros([data_size, 15*(len(self.char_dict)) + 39])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
+#    n-gram: 6*unigram_dict_length +5*bigram_dict_length +4*trigram_dict_length | type_unigram: 6*6 | dict: 3
+    def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す  # sparseで作ってCSRに変換の方が早いかも...
+        feature_array = np.zeros([data_size, 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict) + 39])  # 行はデータサイズ、列は素性の次元
         line_number = 0
         for feature in features:
-            for char, number in zip(feature[:14], range(1, 16)):  #  ngram
+            pre_size = 0
+            for char, number in zip(feature[:5], range(1, 7)):  #  unigram
                 try:
-                    feature_array[line_number][number*self.char_dict[char]] = 1
+                    feature_array[line_number][number*self.unigram_dict[char]] = 1
                 except:
-                    feature_array[line_number][number*self.char_dict['UNK'+str(len(char))]] = 1  # UNK1orUNK2orUNK3
+                    feature_array[line_number][number*self.unigram_dict['UNK']] = 1  # UNK
+            pre_size = 6*len(self.unigram_dict)
+            for char, number in zip(feature[6:10], range(1, 6)):  #  bigram
+                try:
+                    feature_array[line_number][pre_size + number*self.bigram_dict[char]] = 1
+                except:
+                    feature_array[line_number][pre_size + number*self.bigram_dict['UNK']] = 1  # UNK
+            pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict)
+            for char, number in zip(feature[11:14], range(1, 5)):  #  trigram
+                try:
+                    feature_array[line_number][pre_size + number*self.trigram_dict[char]] = 1
+                except:
+                    feature_array[line_number][pre_size + number*self.trigram_dict['UNK']] = 1  # UNK
+            pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict)
             for number in range(15, 21):  # type-unigram
-                feature_array[line_number][15*(len(self.char_dict)) + 6*(number-15) + feature[number]] = 1  #  0~35
+                feature_array[line_number][pre_size + 6*(number-15) + feature[number]] = 1  #  0~35
             for number in range(21, 24):  # dict
-                feature_array[line_number][15*(len(self.char_dict)) + number + 15] = feature[number]  # 36,37,38 binary
+                feature_array[line_number][pre_size + number + 15] = feature[number]  # 36,37,38 binary
             line_number += 1
-            return feature_array  # csrは足し算が早い
+        return feature_array
+
+    def get_types(self, chars):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
+        type = ''
+        for char in chars:
+            type = type+str(self.get_types(char))
+        if type in self.type_dict:
+            return self.type_dict[type]
+        else:
+            self.type_dict[type] = max(self.type_dict.values()) + 1
+            return self.type_dict[type]
+
 
     def get_types(self, char):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
         if 'ぁ' <= char <= 'ん':
@@ -291,7 +325,7 @@ class Morp:
 
 #Analyser = Morp(estimator = SGDClassifier(loss='hinge'))
 Analyser = Morp()
-Analyser.train(['../experiment/corpus/sample.word'])
+Analyser.train(['../experiment/corpus/OY-test.word'])
 print('正解:決算 発表 まで 、 じっと 我慢 の 子 で い られ る か な 。')
 print(Analyser.word_segment('決算発表まで、じっと我慢の子でいられるかな。'))
 print(Analyser.word_segment('インフレは欧州市民にとって最大の懸念事項'))
