@@ -105,6 +105,69 @@ class Morp:
             line_number += 1
         return total_feature, total_teacher
 
+    def train_text(self, text):  # textを投げ込むと素性を学習データを作る
+        text = text.strip()
+        if '|' in list(text) or '-' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
+                teacher = self.get_teacher_part(text)
+            position_list = self.get_position_part(text)  # 学習速度の問題で、ここで学習するpointerを把握
+            chars = list(text.replace("-", "").replace("|", ""))
+            features = []
+            for pointer in position_list:  # 学習
+                feature = self.get_feature(pointer, chars)
+                features.append(feature)
+        else:  # フルアノテーション時
+            teacher = self.get_teacher(text)
+            chars = list(text.replace(" ", ""))
+            features = []
+            for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
+                feature = self.get_feature(pointer, chars)
+                features.append(feature)
+        return features, teacher
+
+    def get_position_part(self, text):  # 部分的アノテーションの学習するpointerの場所をもらう.
+        chars = list(text)
+        position_list = []
+        count = 0  # 学習pointの個数
+        for number in range(1, len(chars)):
+            if chars[number] == '|' or chars[number] == '-':
+                position_list.append(number - count)  # number-countで、原文の学習pointを示せる
+                count+= 1
+        return position_list
+
+    def get_teacher(self, text):  # 空白付きの文字列を送ると、boundary_list(teacher)を返す
+        chars = list(text)
+        teacher = []
+        flag = 0
+        for char in chars:
+            if char == ' ':
+                teacher.append(1)
+                flag = 1
+            elif flag == 0:  # 直前がboundaryでないときのみ
+                teacher.append(0)
+                flag = 0
+            else:
+                flag = 0  # 直前処理
+        teacher = np.array(teacher[1:])
+        return teacher
+
+    def get_teacher_part(self, text):  # 部分的アノテーションの文字列を送ると、boudary_list(teacher)を返す
+        chars = list(text)
+        teacher = []
+        flag = 0
+        for char in chars:
+            if char == '|':
+                teacher.append(1)
+                flag = 1
+            elif char == '-':
+                teacher.append(0)
+                flag = 0
+            elif flag == 0:  # 直前が文字である時のみ  # not_segmented
+                #teacher.append(2)
+                pass
+            else:
+                flag = 0  # 直前処理
+        return teacher
+
     def get_feature(self, pointer, chars):  # featureを取ってくる関数
         # 文字
         l1 = chars[pointer-1]  # 左1文字目
@@ -271,69 +334,6 @@ class Morp:
             cand = chars[pointer-number-2] + cand_l
             cand_l = cand
         return f, s, o
-
-    def train_text(self, text):  # textを投げ込むと素性を学習データを作る
-        text = text.strip()
-        if '|' in list(text) or '-' in list(text):  # ここ部分的annotationを自動で判定するけどやめた方がいいかもね
-            teacher = self.get_teacher_part(text)
-            position_list = self.get_position_part(text)  # 学習速度の問題で、ここで学習するpointerを把握
-            chars = list(text.replace("-", "").replace("|", ""))
-            features = []  
-            for pointer in position_list:  # 学習
-                feature = self.get_feature(pointer, chars)
-                features.append(feature)
-        else:  # フルアノテーション時
-            teacher = self.get_teacher(text)
-            chars = list(text.replace(" ", ""))
-            features = []
-            for pointer in range(1, len(chars)):  # その文字の右側に空白があるかどうかを判定
-                feature = self.get_feature(pointer, chars)
-                features.append(feature)
-        return features, teacher
-
-    def get_position_part(self, text):  # 部分的アノテーションの学習するpointerの場所をもらう.
-        chars = list(text)
-        position_list = []
-        count = 0  # 学習pointの個数
-        for number in range(1, len(chars)):
-            if chars[number] == '|' or chars[number] == '-':
-                position_list.append(number - count)  # number-countで、原文の学習pointを示せる
-                count+= 1
-        return position_list
-
-    def get_teacher(self, text):  # 空白付きの文字列を送ると、boundary_list(teacher)を返す
-        chars = list(text)
-        teacher = []
-        flag = 0
-        for char in chars:
-            if char == ' ':
-                teacher.append(1)
-                flag = 1
-            elif flag == 0:  # 直前がboundaryでないときのみ
-                teacher.append(0)
-                flag = 0
-            else:
-                flag = 0  # 直前処理
-        teacher = np.array(teacher[1:])
-        return teacher
-
-    def get_teacher_part(self, text):  # 部分的アノテーションの文字列を送ると、boudary_list(teacher)を返す
-        chars = list(text)
-        teacher = []
-        flag = 0
-        for char in chars:
-            if char == '|':
-                teacher.append(1)
-                flag = 1
-            elif char == '-':
-                teacher.append(0)
-                flag = 0
-            elif flag == 0:  # 直前が文字である時のみ  # not_segmented
-                #teacher.append(2)
-                pass
-            else:
-                flag = 0  # 直前処理
-        return teacher
 
 #Analyser = Morp(estimator = SGDClassifier(loss='hinge'))
 Analyser = Morp()
