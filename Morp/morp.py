@@ -16,6 +16,7 @@ class Morp:
         self.word_dict = word_dict
         self.estimator = estimator
         self.char_dict = {}
+        self.bigram_dict = {}
 
     def word_segment(self, text):
         '''
@@ -35,20 +36,7 @@ class Morp:
 
     def train(self, text_path_list):  # 引数はpath, あるいはpath_list
         if type(text_path_list) == str:  # pathが一つの時
-            text = ""
-            for line in open(text_path_list, 'r'):  # 全ての文字を繋げたtextを生成
-                line = line.strip().replace(" ", "")
-                text = text + line
-            chars = list(text)  # 1文字づつのリスト
-            self.char_dict = {'UNK': 0, '^': 1, '$': 2}  # 0はUNK
-            char_number = 3
-            for char in chars:  # 辞書を作る
-                if char in self.char_dict:
-                    continue
-                else:
-                    self.char_dict[char] = char_number
-            total_feature, total_teacher = self.train_file(text_path_list)
-
+            text_path_list = [text_path_list]  # 要素数1のlistに
         if type(text_path_list) == list:  # pathが複数
             text = ""
             for text_path in text_path_list:
@@ -72,6 +60,7 @@ class Morp:
                     feature, teacher = self.train_file(text_path)
                     total_feature = sparse.vstack((total_feature, feature))
                     total_teacher = np.hstack((total_teacher, teacher))
+        print(total_feature.todense().shape, total_teacher)
         self.estimator.fit(total_feature.todense(), total_teacher)
         return 0
 
@@ -148,8 +137,8 @@ class Morp:
                 feature_array[0][number*self.char_dict[char]] = 1
         for number in range(6, 12):  # 素性tr1~tl3
             feature_array[0][6*(len(self.char_dict)) + 6*(number-6) + feature[number]] = 1  #  0~35
-        for number in range(12, 15):
-            feature_array[0][6*(len(self.char_dict)) + number + 24] = 1  # 36,37,38
+        for number in range(12, 15): # 素性 f, s, o
+            feature_array[0][6*(len(self.char_dict)) + number + 24] = feature[number]  # 36,37,38
         prediction = self.estimator.predict(feature_array)
         return prediction[0]
 
@@ -165,7 +154,12 @@ class Morp:
         if char.isdigit():
             return 4
         return 5
-    
+
+    def get_types(self, type1, type2):  # ルールで125は現実的じゃないよね....(５進数??? 00 -> 6, 01 -> 7....)  # 5進数ないんかい
+        return ()
+
+
+
     def get_dict_feature(self, pointer, chars): # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
         # ウルトラ汚いので整備必要(一応動くはず)
         f, s, o = 0, 0, 0
@@ -203,17 +197,14 @@ class Morp:
 
     def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す
         feature_array = np.zeros([data_size, 6*(len(self.char_dict) + 6) + 3])  # 行はデータサイズ、列は素性の次元(1文字につき、文字次元+文字種)
-        print(feature_array.shape)
         line_number = 0
         for feature in features:
-            for char, number in zip(feature[:5], range(1, 7)):  # 素性r1~l3まで
+            for char, number in zip(feature[:5], range(1, 7)):  # 素性r1~l3まで  # ここ、素性のON,OFFできるようにしたい
                 feature_array[line_number][number*self.char_dict[char]] = 1
             for number in range(6, 12):  # 素性tr1~tl3
-                print(6*(len(self.char_dict)) + 6*(number-6) + feature[number])
                 feature_array[line_number][6*(len(self.char_dict)) + 6*(number-6) + feature[number]] = 1  #  0~35
             for number in range(12, 15):
-                print(6*(len(self.char_dict)) + number + 24)
-                feature_array[line_number][6*(len(self.char_dict)) + number + 24] = 1  # 36,37,38
+                feature_array[line_number][6*(len(self.char_dict)) + number + 24] = feature[number]  # 36,37,38 binary
             line_number += 1
         return sparse.csr_matrix(feature_array)  # csrは足し算が早い
 
@@ -282,11 +273,11 @@ class Morp:
 
 #Analyser = Morp(estimator = SGDClassifier(loss='hinge'))
 Analyser = Morp()
-for number in range(0, 100):
-    Analyser.train(['a.txt'])
-    print('正解:決算 発表 まで 、 じっと 我慢 の 子 で い られ る か な 。')
-    print(Analyser.word_segment('決算発表まで、じっと我慢の子でいられるかな。'))
-
+Analyser.train(['../experiment/corpus/OY-train.word'])
+print('正解:決算 発表 まで 、 じっと 我慢 の 子 で い られ る か な 。')
+print(Analyser.word_segment('決算発表まで、じっと我慢の子でいられるかな。'))
+print(Analyser.word_segment('インフレは欧州市民にとって最大の懸念事項'))
+print(Analyser.word_segment('人の命の大事さを実感できる施設で働いていたにも関わらず、'))
 
 #f = open('model', 'wb')
 #pickle.dump(Analyser, f)
