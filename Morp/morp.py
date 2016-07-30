@@ -18,8 +18,7 @@ class Morp:
         self.unigram_dict = {}
         self.bigram_dict = {}
         self.trigram_dict = {}
-        self.type_dict = self.get_type_dict()
-        print(self.type_dict)
+        self.type_dict = self.get_type_dict()  # 6**3=216
 
     def word_segment(self, text):
         '''
@@ -39,7 +38,10 @@ class Morp:
                 output_chars = output_chars + ' ' + chars[pointer]
         return output_chars
 
-    def train(self, text_path_list):  # 引数はpath, あるいはpath_list
+    def train(self, text_path_list): 
+        '''
+        引数にpath_listを与えると、学習を行う。(path単体でも一応動作する)
+        '''
         if type(text_path_list) == str:  # pathが一つの時
             text_path_list = [text_path_list]  # 要素数1のlistに
         if type(text_path_list) == list:  # pathが複数
@@ -76,17 +78,14 @@ class Morp:
         self.estimator.fit(total_feature, total_teacher)
         return 0
 
-    def ngram(self, text, n):
+    def ngram(self, text, n):  # n-gramを取ってくるコード(http://blog.livedoor.jp/yawamen/archives/51513695.htmlから引用)
         results = []
         if len(text) >= n:
             for i in range(len(text)-n+1):
                 results.append(text[i:i+n])
         return results
 
-    def train_file(self, text_path):
-        '''
-        ファイル一つから学習を行う。学習部分について要確認. text_pathを複数いれた方がいいのかね? まあcatくらいは自前でやってほしいかも
-        '''
+    def train_file(self, text_path):  # ファイル一つから学習を行う.
         first_flag = 1  # 学習用のarrayの初期用
         line_number = 0
         for line in open(text_path, 'r'):  # 学習データ生成
@@ -106,7 +105,7 @@ class Morp:
             line_number += 1
         return total_feature, total_teacher
 
-    def get_feature(self, pointer, chars):
+    def get_feature(self, pointer, chars):  # featureを取ってくる関数
         # 文字
         l1 = chars[pointer-1]  # 左1文字目
         if pointer-2 < 0:
@@ -126,64 +125,60 @@ class Morp:
             r3 = '$'
         else:
             r3 = chars[pointer+2]
-        
         # bigram
         l3l2 = l3 + l2
         l2l1 = l2 + l1
         l1r1 = l1 + r1
         r1r2 = r1 + r2
         r2r3 = r2 + r3
-
         # trigram
         l3l2l1 = l3 + l2 + l1
         l2l1r1 = l2 + l1 + r1
         l1r1r2 = l1 + r1 + r2
         r1r2r3 = r1 + r2 + r3
-
-        # 文字種
+        # type_unigram
         tl1 = self.get_types(l1)
         tl2 = self.get_types(l2)
         tl3 = self.get_types(l3)
         tr1 = self.get_types(r1)
         tr2 = self.get_types(r2)
         tr3 = self.get_types(r3)
-        
         # type_bigram
         tl3l2 = self.get_types(l3 + l2)
         tl2l1 = self.get_types(l2 + l1)
         tl1r1 = self.get_types(l1 + r1)
         tr1r2 = self.get_types(r1 + r2)
         tr2r3 = self.get_types(r2 + r3)
-
         # type_trigram
         tl3l2l1 = self.get_types(l3 + l2 + l1)
         tl2l1r1 = self.get_types(l2 + l1 + r1)
         tl1r1r2 = self.get_types(l1 + r1 + r2)
         tr1r2r3 = self.get_types(r1 + r2 + r3)
-
         # 辞書  # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
         f, s, o = 0, 0, 0
-        if not self.word_dict is None:  # 辞書を持っているpattern
+        if not self.word_dict is None:  # 辞書を持っている時
             f, s, o = self.get_dict_feature(pointer, chars)
-        feature = [l1, l2, l3, r1, r2, r3, l3l2, l2l1, l1r1, r1r2, r2r3, l3l2l1, l2l1r1, l1r1r2, r1r2r3, tl1, tl2, tl3, tr1, tr2, tr3, tl3l2, tl2l1, tl1r1, tr1r2, tr2r3, tl3l2l1, tl2l1r1, tl1r1r2, tr1r2r3, f, s, o]
+        feature = [l1, l2, l3, r1, r2, r3, l3l2, l2l1, l1r1, r1r2, r2r3, l3l2l1, l2l1r1, l1r1r2, r1r2r3, tl1, tl2, tl3, tr1, tr2, tr3, tl3l2, tl2l1, tl1r1, tr1r2, tr2r3, tl3l2l1, tl2l1r1, tl1r1r2, tr1r2r3, f, s, o]  # ここ長すぎるから望ましくないよね
         return feature
 
-    def decision_boundary(self, feature):  
+    def decision_boundary(self, feature):  # 単語分割を行うかどうか(word_segmentに併合?)
         feature_array = self.make_feature_array([feature], 1)
         prediction = self.estimator.predict(feature_array)
         return prediction[0]
 
+#    Feature説明
 #    [0,1,2,3,4,5||6,7,8,9,10,||11,12,13,14||15,16,17,18,19,20,||21,22,23,24,25||26,27,28,29||30,31,32]
-#         unigram       bigram    trigram     type-unigram       type_bigram     type_trigram   dict
-#    n-gram: 6*unigram_dict_length +5*bigram_dict_length +4*trigram_dict_length | type_unigram: (6+5+4)*type_dict_length | dict: 3
+#         unigram    bigram       trigram     type-unigram       type_bigram     type_trigram   dict
+#    変換後の次元数: n-gram: 6*unigram_dict_length +5*bigram_dict_length +4*trigram_dict_length | type_unigram, type_bigram, type_trigram: (6+5+4)*type_dict_length | dict: 3
+
     def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す  # sparseで作ってCSRに変換の方が早いかも...
         feature_array = np.zeros([data_size, 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict) + 15*len(self.type_dict) + 3])  # 行はデータサイズ、列は素性の次元
         line_number = 0
         for feature in features:
-            pre_size = 0
+            pre_size = 0  # 左橋から埋めていく
             for char, number in zip(feature[:5], range(1, 7)):  #  unigram
                 try:
-                    feature_array[line_number][number*self.unigram_dict[char]] = 1
+                    feature_array[line_number][number*self.unigram_dict[char]] = 1  # 既知
                 except:
                     feature_array[line_number][number*self.unigram_dict['UNK']] = 1  # UNK
             pre_size = 6*len(self.unigram_dict)
@@ -191,23 +186,25 @@ class Morp:
                 try:
                     feature_array[line_number][pre_size + number*self.bigram_dict[char]] = 1
                 except:
-                    feature_array[line_number][pre_size + number*self.bigram_dict['UNK']] = 1  # UNK
+                    feature_array[line_number][pre_size + number*self.bigram_dict['UNK']] = 1
             pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict)
             for char, number in zip(feature[11:14], range(1, 5)):  #  trigram
                 try:
                     feature_array[line_number][pre_size + number*self.trigram_dict[char]] = 1
                 except:
-                    feature_array[line_number][pre_size + number*self.trigram_dict['UNK']] = 1  # UNK
+                    feature_array[line_number][pre_size + number*self.trigram_dict['UNK']] = 1
             pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict)
+
             for type, number in zip(feature[15:29], range(1, 17)):  # type_unigram, type_bigram, type_trigram
-                feature_array[line_number][pre_size + self.type_dict[type]] = 1  #  例外はないはず..
+                feature_array[line_number][pre_size + self.type_dict[type]] = 1  # typeはunigram, bigram, trigram がそれぞれ216次元持っておりUNKは存在しない
             pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict) + 15*len(self.type_dict)
+
             for number in range(30, 33):  # dict
                 feature_array[line_number][pre_size + number -30] = feature[number]
             line_number += 1
         return feature_array
 
-    def get_type_dict(self):
+    def get_type_dict(self):  # インスタンス作成時にtype_dictを作成する
         type_dict = {}
         dict_number = 0
         for number1 in range (0, 6):
@@ -221,7 +218,7 @@ class Morp:
                     dict_number += 1
         return type_dict
 
-    def get_types(self, chars):  # 複数の文字列をself.type_dictに照らし合わせる
+    def get_types(self, chars):  # 複数の文字列をself.type_dictに照らし合わせて、番号をもらう
         type = ''
         for char in chars:
             type = type+str(self.get_type(char))
