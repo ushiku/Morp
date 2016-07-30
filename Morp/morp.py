@@ -18,7 +18,8 @@ class Morp:
         self.unigram_dict = {}
         self.bigram_dict = {}
         self.trigram_dict = {}
-        self.type_dict = {}
+        self.type_dict = self.get_type_dict()
+        print(self.type_dict)
 
     def word_segment(self, text):
         '''
@@ -146,21 +147,25 @@ class Morp:
         tr1 = self.get_types(r1)
         tr2 = self.get_types(r2)
         tr3 = self.get_types(r3)
+        
+        # type_bigram
+        tl3l2 = self.get_types(l3 + l2)
+        tl2l1 = self.get_types(l2 + l1)
+        tl1r1 = self.get_types(l1 + r1)
+        tr1r2 = self.get_types(r1 + r2)
+        tr2r3 = self.get_types(r2 + r3)
+
+        # type_trigram
+        tl3l2l1 = self.get_types(l3 + l2 + l1)
+        tl2l1r1 = self.get_types(l2 + l1 + r1)
+        tl1r1r2 = self.get_types(l1 + r1 + r2)
+        tr1r2r3 = self.get_types(r1 + r2 + r3)
 
         # 辞書  # dictを読んで、現在のpoint直前で終わる(f) / point直後から単語が始める(s) / pointの上を辞書がまたぐ(o).
         f, s, o = 0, 0, 0
         if not self.word_dict is None:  # 辞書を持っているpattern
             f, s, o = self.get_dict_feature(pointer, chars)
-
-        # type_bigram
-#        tbl1 =   # tl1 + tl2
-#        tbl2 =   # tl2 + tl3
-#        tbr1 =   # tr1 + tr2 
-#        tbr2 =   # tr2 + tr3
-#        tbo1 =   # tr1 + tl1
-        
-
-        feature = [l1, l2, l3, r1, r2, r3, l3l2, l2l1, l1r1, r1r2, r2r3, l3l2l1, l2l1r1, l1r1r2, r1r2r3, tl1, tl2, tl3, tr1, tr2, tr3, f, s, o]
+        feature = [l1, l2, l3, r1, r2, r3, l3l2, l2l1, l1r1, r1r2, r2r3, l3l2l1, l2l1r1, l1r1r2, r1r2r3, tl1, tl2, tl3, tr1, tr2, tr3, tl3l2, tl2l1, tl1r1, tr1r2, tr2r3, tl3l2l1, tl2l1r1, tl1r1r2, tr1r2r3, f, s, o]
         return feature
 
     def decision_boundary(self, feature):  
@@ -168,11 +173,11 @@ class Morp:
         prediction = self.estimator.predict(feature_array)
         return prediction[0]
 
-#    [0,1,2,3,4,5||6,7,8,9,10,||11,12,13,14||15,16,17,18,19,20,||21, 22,23,]
-#         unigram       bigram         trigram        type-unigram     dict
-#    n-gram: 6*unigram_dict_length +5*bigram_dict_length +4*trigram_dict_length | type_unigram: 6*6 | dict: 3
+#    [0,1,2,3,4,5||6,7,8,9,10,||11,12,13,14||15,16,17,18,19,20,||21,22,23,24,25||26,27,28,29||30,31,32]
+#         unigram       bigram    trigram     type-unigram       type_bigram     type_trigram   dict
+#    n-gram: 6*unigram_dict_length +5*bigram_dict_length +4*trigram_dict_length | type_unigram: (6+5+4)*type_dict_length | dict: 3
     def make_feature_array(self, features, data_size):  # featuresを投げるとarrayを返す  # sparseで作ってCSRに変換の方が早いかも...
-        feature_array = np.zeros([data_size, 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict) + 39])  # 行はデータサイズ、列は素性の次元
+        feature_array = np.zeros([data_size, 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict) + 15*len(self.type_dict) + 3])  # 行はデータサイズ、列は素性の次元
         line_number = 0
         for feature in features:
             pre_size = 0
@@ -194,25 +199,35 @@ class Morp:
                 except:
                     feature_array[line_number][pre_size + number*self.trigram_dict['UNK']] = 1  # UNK
             pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict)
-            for number in range(15, 21):  # type-unigram
-                feature_array[line_number][pre_size + 6*(number-15) + feature[number]] = 1  #  0~35
-            for number in range(21, 24):  # dict
-                feature_array[line_number][pre_size + number + 15] = feature[number]  # 36,37,38 binary
+            for type, number in zip(feature[15:29], range(1, 17)):  # type_unigram, type_bigram, type_trigram
+                feature_array[line_number][pre_size + self.type_dict[type]] = 1  #  例外はないはず..
+            pre_size = 6*len(self.unigram_dict) + 5*len(self.bigram_dict) + 4*len(self.trigram_dict) + 15*len(self.type_dict)
+            for number in range(30, 33):  # dict
+                feature_array[line_number][pre_size + number -30] = feature[number]
             line_number += 1
         return feature_array
 
-    def get_types(self, chars):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
+    def get_type_dict(self):
+        type_dict = {}
+        dict_number = 0
+        for number1 in range (0, 6):
+            type_dict[str(number1)] = dict_number
+            dict_number += 1
+            for number2 in range(0, 6):
+                type_dict[str(number1)+str(number2)] = dict_number
+                dict_number += 1
+                for number3 in range(0, 6):
+                    type_dict[str(number1)+str(number2)+str(number3)] = dict_number
+                    dict_number += 1
+        return type_dict
+
+    def get_types(self, chars):  # 複数の文字列をself.type_dictに照らし合わせる
         type = ''
         for char in chars:
-            type = type+str(self.get_types(char))
-        if type in self.type_dict:
-            return self.type_dict[type]
-        else:
-            self.type_dict[type] = max(self.type_dict.values()) + 1
-            return self.type_dict[type]
+            type = type+str(self.get_type(char))
+            return type
 
-
-    def get_types(self, char):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
+    def get_type(self, char):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
         if 'ぁ' <= char <= 'ん':
             return 0
         if 'ァ' <= char <= 'ﾝ' and not '亜' <= char <= '話':
