@@ -283,8 +283,8 @@ class Morp:
     def get_types(self, chars):  # 複数の文字列をself.type_dictに照らし合わせて、番号をもらう
         type = ''
         for char in chars:
-            type = type+str(self.get_type(char))
-            return type
+            type = type + str(self.get_type(char))
+        return type
 
     def get_type(self, char):  # 文字種判別. ひらがな=0, カタカナ=1, 漢字=2, Alphabet=3, 数字=4, その他=5
         if 'ぁ' <= char <= 'ん':
