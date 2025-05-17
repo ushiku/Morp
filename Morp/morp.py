@@ -62,7 +62,7 @@ class Morp:
                     else:
                         dict[char] = char_number
                     char_number += 1
-                cahr_number = 0  # reset
+                char_number = 0  # reset
 
             first_flag = 1
             for text_path in text_path_list:
